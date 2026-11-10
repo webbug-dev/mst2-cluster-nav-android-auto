@@ -1,0 +1,42 @@
+mst2-cluster-nav-android-auto
+
+This repository is an adaptation of mst2-cluster-nav
+(https://github.com/perkthefox/mst2-cluster-nav),
+Copyright (c) 2026 Anton Perk, licensed under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0);
+see LICENSE.
+
+Changes were made. This fork adds Android Auto to the original CarPlay project:
+hooks in SAL around the Android Auto receiver library (a cluster video sink, the
+input source a display needs, a navigation status service, the rewritten service
+discovery response, protocol 1.7 navigation), the "decode mode" that decodes the
+phone's cluster stream on the head unit through a second mm-renderer context into a
+Screen window on the cluster source display so that the stock encoder sends it, the
+HMI counterpart that keeps the cluster's "navigation on the mobile device" notice away
+during Android Auto, a diagnostic capture of the phone's stream, a release and an
+expert Green Engineering Menu, and the verification on firmware MST2_EU_SK_ZR_P0478T.
+
+The adaptation is Copyright (c) 2026 the maintainer of this repository and is released
+under the same licence, CC BY-NC-SA 4.0.
+
+Attribution required by this licence: any copy, adaptation or derived work must
+credit "Anton Perk", link to the original repository, state the licence and say
+whether changes were made. Adaptations must be released under CC BY-NC-SA 4.0.
+Commercial use, including selling builds, activations or "paid versions", is not
+permitted without the authors' written permission.
+
+Knowledge used, no code copied: the decode mode of the Android Auto cluster map
+(native/src/sal/decode.c) follows what the project mst2-altscreen-carplay (GPL-3.0-or-later)
+measured in a car on the sister firmware P0480T: a second mm-renderer context beside the
+stock one, "overlay=0", a window one pixel narrower than the cluster source display, and that
+a window DisplayManager still has on its list must not be destroyed. Its documentation is
+cited in the source; its code is not part of this work.
+
+No vendor firmware, binaries or map data are part of this repository. The HMI bundle is
+compiled against the HMI of the user's own unit, which the user converts from the
+unit's MIBHMI.jxe and which is not distributed here.
+
+---
+
+Third-party: `third-party/mib-std2-pq-zr-toolbox/` is the unmodified MIB STD2 Toolbox v1.5.1 by olli991,
+MIT licence (its own LICENSE file is kept next to it).

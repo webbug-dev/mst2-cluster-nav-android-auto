@@ -1,0 +1,36 @@
+###########################################################################################
+#
+# mst2-cluster-nav - phone navigation on the instrument cluster
+# Copyright (c) 2026 Anton Perk. CC BY-NC-SA 4.0
+#
+# Main -> MIB STD2 Toolbox Main -> Customization -> Cluster navigation
+#
+# The release menu: install for one boot, keep, or remove. Every setting has its default
+# (Android Auto map decoded on the unit, phone map with the native arrows). The full menu with
+# the settings and the test modes is toolbox/expert/greenmenu/mst2-cluster-nav.esd in the
+# repository: copy it over this file on the card and import the menus again.
+#
+###########################################################################################
+screen Cluster_Navigation Customization
+
+keyValue
+    value   String sys 0x00000000 0
+    label   "Phone navigation on the instrument cluster - mst2-cluster-nav by Anton Perk"
+    poll    0
+
+keyValue
+    value   String sys 0x00000000 0
+    label   "Emergency stop: an SD card with an empty file mst2-cluster-nav-disable in its root."
+    poll    0
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_install.sh"
+    label   "Install / update: the NEXT boot only (trial)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_enable.sh"
+    label   "Enable permanently: every boot"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_uninstall.sh"
+    label   "Uninstall: stock files back, then reboot"

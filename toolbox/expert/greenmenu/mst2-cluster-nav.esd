@@ -1,0 +1,131 @@
+###########################################################################################
+#
+# mst2-cluster-nav - phone navigation on the instrument cluster
+# Copyright (c) 2026 Anton Perk. CC BY-NC-SA 4.0
+#
+# Main -> MIB STD2 Toolbox Main -> Customization -> Cluster navigation
+#
+# The EXPERT menu: every setting and the test modes. Not in the package; the release menu
+# (toolbox/custom/greenmenu/mst2-cluster-nav.esd) has install, enable and uninstall only. To
+# use this one, copy it over custom/greenmenu/mst2-cluster-nav.esd on the card and import the
+# menus again (Customization -> GreenMenu -> Copy custom ... screens and scripts to unit).
+#
+###########################################################################################
+screen Cluster_Navigation Customization
+
+keyValue
+    value   String sys 0x00000000 0
+    label   "Phone navigation on the instrument cluster - mst2-cluster-nav by Anton Perk"
+    poll    0
+
+keyValue
+    value   String sys 0x00000000 0
+    label   "Install arms ONE trial boot. Emergency: SD card with file mst2-cluster-nav-disable."
+    poll    0
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_install.sh"
+    label   "Install / update (next boot is a trial)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_enable.sh"
+    label   "Enable permanently"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_trial.sh"
+    label   "Arm another trial boot"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_disable.sh"
+    label   "Disable"
+
+keyValue
+    value   String sys 0x00000000 0
+    label   "Cluster view:"
+    poll    0
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_auto.sh"
+    label   "Phone map and native arrows (default)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_arrows.sh"
+    label   "Native arrows only"
+
+keyValue
+    value   String sys 0x00000000 0
+    label   "Android Auto:"
+    poll    0
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_aa-on.sh"
+    label   "Android Auto on the cluster: on (default)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_aa-off.sh"
+    label   "Android Auto on the cluster: off (stock Android Auto)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_aa-720.sh"
+    label   "Android Auto map: 1280x720 cropped to the cluster window (default)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_aa-480.sh"
+    label   "Android Auto map: 800x480 stretched (if the cropped stream shows nothing)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_aa-keycycle-on.sh"
+    label   "Android Auto map: key frames by a focus cycle (default)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_aa-keycycle-off.sh"
+    label   "Android Auto map: no focus cycle (if the picture flickers)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_aa-decode-on.sh"
+    label   "Android Auto map: decoded on the unit (default; the cluster takes only its own format)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_aa-decode-off.sh"
+    label   "Android Auto map: passed through to the cluster (expert; black cluster on this firmware)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_hidemap-off.sh"
+    label   "Built-in map: kept under the phone map (default)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_hidemap-on.sh"
+    label   "Built-in map: hidden under the phone map (pass-through only: stops the cluster stream in decode mode)"
+
+keyValue
+    value   String sys 0x00000000 0
+    label   ""
+    poll    0
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_demo-on.sh"
+    label   "Demo guidance on (check the install without a phone)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_demo-off.sh"
+    label   "Demo guidance off"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_lab-on.sh"
+    label   "Test video on (mst2-cluster-nav-video.h264 from the card, without a phone)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_lab-off.sh"
+    label   "Test video off"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_status.sh"
+    label   "Status"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_set_diag.sh"
+    label   "Save diagnostics to the SD card (run with the phone connected)"
+
+script
+    value   sys 1 0x0100 "/tsd/etc/persistence/esd/scripts/mcn_uninstall.sh"
+    label   "Uninstall"

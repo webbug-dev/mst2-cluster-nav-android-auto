@@ -1,0 +1,11 @@
+build/
+native/build/
+hmi/build/
+*.class
+*.o
+*~
+*.swp
+*.swo
+.DS_Store
+.idea/
+.vscode/
