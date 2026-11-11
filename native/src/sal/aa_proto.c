@@ -279,14 +279,13 @@ static unsigned cluster_video_service(uint8_t *out, unsigned cap, const struct a
         ui_n = ui_config(ui, sizeof(ui), AA_VIEW_Y + 56, AA_VIEW_Y + (AA_VIEW_H - 306),
                          AA_VIEW_X + 377, AA_VIEW_X + (AA_VIEW_W - 634));
     } else {
-        /*
-         * 800x480 (decode mode: decode.c shows the centred 800x300 band, rows 90..389). The
-         * phone centres the car in the content area and puts its "Google Maps" logo at the
-         * area's bottom edge (car, 2026-11-10: insets 56/174 put the logo at rows 282..303,
-         * in the middle of the band). With the bottom inset 0 the logo lands in rows ~455..477,
-         * below the band, and the car sits at row 285, 65 % down the band: road ahead above.
-         */
-        ui_n = ui_config(ui, sizeof(ui), AA_DEC_VIEW_Y, 0, 300, 800 - 500);
+        /* 800x480, decode mode: the layout of mcn_aa.h (AA_DEC_INSET_*), or the card's. */
+        if (s->insets_set) {
+            ui_n = ui_config(ui, sizeof(ui), s->inset[0], s->inset[1], s->inset[2], s->inset[3]);
+        } else {
+            ui_n = ui_config(ui, sizeof(ui), AA_DEC_INSET_TOP, AA_DEC_INSET_BOTTOM,
+                             AA_DEC_INSET_LEFT, AA_DEC_INSET_RIGHT);
+        }
     }
     k += aa_pb_put_varint(config + k, sizeof(config) - k, 1, s->res);
     k += aa_pb_put_varint(config + k, sizeof(config) - k, 2, s->fps);

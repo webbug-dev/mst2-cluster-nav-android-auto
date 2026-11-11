@@ -30,7 +30,7 @@ for that. The Toolbox's **dual navigation** patch (`NavActiveIgnore.jar`) does n
 this mod: the installer refuses it (`Customization -> Navigation -> Disable dual navigation`,
 reboot, then install), and if it is switched on later, the mod switches itself off.
 
-**SD card.** The release zip `mst2-cluster-nav-android-auto-sd-v1.0.zip` is a complete card (the Toolbox plus the mod, see the README's How to use). Otherwise: the Toolbox card (FAT32 or exFAT) with the Toolbox's own `custom/` folder on it. The mod's
+**SD card.** The release zip `mst2-cluster-nav-android-auto-sd-v1.1.zip` is a complete card (the Toolbox plus the mod, see the README's How to use). Otherwise: the Toolbox card (FAT32 or exFAT) with the Toolbox's own `custom/` folder on it. The mod's
 files go next to them; the installer looks for a card that has `custom/mst2-cluster-nav/`.
 
 **Phone.** An Android phone with Android Auto and Google Maps or Waze, connected with a USB

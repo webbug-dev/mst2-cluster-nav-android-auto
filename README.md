@@ -58,7 +58,7 @@ not enabled yet: it is switched on once with an OBD2 tool in the infotainment ad
 
 ### Steps
 
-1. **Download** [**mst2-cluster-nav-android-auto-sd-v1.0.zip**](https://github.com/webbug-dev/mst2-cluster-nav-android-auto/releases/latest).
+1. **Download** [**mst2-cluster-nav-android-auto-sd-v1.1.zip**](https://github.com/webbug-dev/mst2-cluster-nav-android-auto/releases/latest). What changed: [CHANGELOG](CHANGELOG.md).
 2. **Prepare the card.** Format an SD card as **FAT32** and unzip the download to its **root**, so
    that `custom/`, `toolbox/`, `install.sh` and `metainfo2.txt` are directly on the card.
 3. **Install the Toolbox on the unit** (skip this step if the Toolbox is already installed; check:
@@ -168,15 +168,18 @@ the mod's own directories.
 
 - **Verified:** decode mode with the live Google Maps map and the native arrows on P0478T
   (2026-11-10). Decode mode is the default and the only path that works on this firmware.
-- **Map only.** The cluster shows the phone's map, route and car marker. Android Auto's cluster
-  display has no maneuver card of the app on it; the arrows come from the cluster itself.
+- **The phone's map, car marker and maneuver card.** The cluster shows Google Maps' cluster
+  view: the map with the route, the car marker in the middle and the green maneuver card with
+  the next turn and the arrival time at the right edge. The cluster's own arrows are shown too.
 - **No speed limit sign** from the phone: the Android Auto protocol carries no speed limit for the
   cluster display.
-- **"Google Maps" logo.** Google Maps draws its logo at the bottom edge of the content area it
-  is given. The content insets offered to the phone (top 90, bottom 0, left/right 300 for the
-  800x480 stream) put that edge at the bottom of the visible 800x300 band, so the logo falls out
-  of the picture and the car marker sits about 65 % down the band (measured on the car,
-  2026-11-10).
+- **Layout.** Google Maps places the car, the maneuver card and its logo inside the "content
+  area" the unit offers it. The default (top 83, bottom 128, left 240, right 10, in pixels of
+  the 800x480 stream; measured on the car, 2026-11-11) keeps the card fully visible at the
+  right edge, centres the car horizontally and hides the logo under the bottom bar. To adjust
+  it without rebuilding, put a file `mst2-cluster-nav-layout.txt` on the root of the SD card
+  with five numbers, `top bottom left right shift` (for example `83 128 240 10 0`), and
+  reconnect the phone; invalid values fall back to the default.
 - **No steering-wheel zoom** of the phone's cluster map: there is no such command in the Android
   Auto protocol for the cluster display (CarPlay has one).
 - **Dark theme** only is requested from the phone; a day/night switch is on the

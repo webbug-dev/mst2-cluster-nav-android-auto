@@ -74,6 +74,25 @@
  * (decode.c view_of, VIEW_DY 0). The content insets sent to the phone are laid out in it. */
 #define AA_DEC_VIEW_Y 90
 #define AA_DEC_VIEW_H 300
+/*
+ * Decode mode layout: the content insets the phone lays its map out in (pixels of the 800x480
+ * picture) and VIEW_DY. Measured on the car (photos of 2026-11-11, wide cluster view): the
+ * shown band maps to the cluster as frame row = (picture row - 90 - dy) * 1.28; the status
+ * line covers frame rows 0..56, the bottom bar starts at frame row ~325, with the two carbon
+ * corners rising above it at the sides. Google Maps puts its maneuver card on the right of the
+ * content area, anchored to its bottom edge (card bottom ~74 px above it), draws its logo
+ * 17 px above that edge and centres the car in the area left of the card (card left edge at
+ * x ~560 with right inset 10). So: bottom edge at row 352 (card fully visible between the
+ * status line and the right carbon corner, logo hidden under the bottom bar), right inset 10
+ * (card at the cluster's right edge), left inset 240 (car centred: (240 + 560) / 2 = 400).
+ * A card file mst2-cluster-nav-layout.txt (or MCN_DIR/layout) overrides them at the next
+ * phone connection: "top bottom left right dy", e.g. "83 128 240 10 0".
+ */
+#define AA_DEC_INSET_TOP 83
+#define AA_DEC_INSET_BOTTOM 128
+#define AA_DEC_INSET_LEFT 240
+#define AA_DEC_INSET_RIGHT 10
+#define AA_DEC_VIEW_DY 0
 
 /* ---- protobuf-lite reader (bounded by the buffer end) and writer ---------------------- */
 
@@ -99,6 +118,8 @@ struct aa_services {
     unsigned dpi;
     int cluster;                /* offer the cluster display at all */
     int arrows;                 /* offer the navigation status service */
+    int insets_set;             /* 800x480: use inset[] (top, bottom, left, right) */
+    unsigned inset[4];
 };
 
 /*

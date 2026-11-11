@@ -86,11 +86,12 @@ protobuf bytes, with no object layouts involved (`aa_discovery_rewrite`):
   `VideoConfiguration`: 1280x720, the stock frame-rate enum, margins 270x344 (the phone lays
   its UI out in the centred 1010x376 viewport), density 105, `UiConfig` with the stock cluster
   safe area (sal.h `MCN_SAFE_*`, shifted by the viewport origin) and the dark theme. In
-  decode mode (800x480, the default) the insets are top 90, bottom 0, left/right 300: the
-  phone centres the car in the content area and draws its "Google Maps" logo at the area's
-  bottom edge (car, 2026-11-10: with insets 56/174 the logo sat in rows 282..303, in the middle
-  of the shown 800x300 band), so the bottom edge is sent as the frame's bottom and the logo
-  falls below the band; the car ends up 65 % down the band;
+  decode mode (800x480, the default) the insets are top 83, bottom 128, left 240, right 10
+  (`AA_DEC_INSET_*` in mcn_aa.h; a card file `mst2-cluster-nav-layout.txt` overrides them):
+  Google Maps anchors its maneuver card to the bottom right of the content area, draws its
+  logo 17 px above the area's bottom edge and centres the car in the area left of the card
+  (car, 2026-11-11). These values put the card fully on the cluster at its right edge, the car
+  in the horizontal middle and the logo under the cluster's bottom bar;
 - an `InputSourceService` for display 1 (DPAD_CENTER only; a display without one is refused);
 - a `NavigationStatusService` (interval 1000 ms, type ENUM).
 

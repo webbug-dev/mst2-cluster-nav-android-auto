@@ -123,6 +123,15 @@ int mcn_decode_on(void)
     return decode_on;
 }
 
+void mcn_decode_layout(int v[5])
+{
+    v[0] = AA_DEC_INSET_TOP;
+    v[1] = AA_DEC_INSET_BOTTOM;
+    v[2] = AA_DEC_INSET_LEFT;
+    v[3] = AA_DEC_INSET_RIGHT;
+    v[4] = AA_DEC_VIEW_DY;
+}
+
 unsigned mcn_decode_begin(unsigned width, unsigned height)
 {
     decode_begins++;

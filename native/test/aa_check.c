@@ -92,7 +92,7 @@ static void check_discovery(void)
     uint8_t video_config[16], sink[64], audio_sink[16], input[16], in[1024], out[2048];
     unsigned k, n = 0, m, count;
     struct found f[8];
-    struct aa_services s = { 0x40, 0x41, 0x42, AA_RES_1280x720, 0, 110, 1, 1 };
+    struct aa_services s = { 0x40, 0x41, 0x42, AA_RES_1280x720, 0, 110, 1, 1, 0, { 0, 0, 0, 0 } };
     static const uint8_t name[] = "Amundsen";
 
     /* Stock: video sink (res 1, fps enum 2), an audio sink, an input source, a name. */

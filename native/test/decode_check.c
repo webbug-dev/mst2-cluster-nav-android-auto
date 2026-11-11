@@ -213,6 +213,9 @@ int mcn_test_open(const char *path, int flags, ...)
     if (!strcmp(path, MCN_LAB_VIDEO)) {
         return replay ? FD_LAB : -1;
     }
+    if (strstr(path, "layout")) {
+        return -1; /* no layout file: the defaults */
+    }
     CHECK(!"unexpected file opened");
     return -1;
 }

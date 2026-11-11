@@ -969,6 +969,16 @@ static int queue_outgoing(queue_fn real, void *r, unsigned char channel, void *b
         s.dpi = (unsigned)file_number(AA_DPI_FILE, AA_DPI_DEFAULT);
         s.cluster = cluster_offered;
         s.arrows = 1;
+        if (s.res == AA_RES_800x480) {
+            int v[5];
+
+            mcn_decode_layout(v);
+            s.insets_set = 1;
+            s.inset[0] = (unsigned)v[0];
+            s.inset[1] = (unsigned)v[1];
+            s.inset[2] = (unsigned)v[2];
+            s.inset[3] = (unsigned)v[3];
+        }
         out[0] = 0;
         out[1] = AA_MSG_SERVICE_DISCOVERY_RESPONSE;
         k = aa_discovery_rewrite(p + 2, n - 2, out + 2, sizeof(out) - 2, &s);

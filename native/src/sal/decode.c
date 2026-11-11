@@ -41,6 +41,7 @@
  * shows the built-in map, as stock.
  */
 #include "sal.h"
+#include "mcn_aa.h"
 
 /* ---- what is easy to change ---------------------------------------------------------------- */
 
@@ -79,7 +80,9 @@
 #define VIEW_ASPECT_W 8
 #define VIEW_ASPECT_H 3
 #define VIEW_DX 0
-#define VIEW_DY 0
+#define LAYOUT_FILE MCN_DIR "/layout"
+#define LAYOUT_CARD_FILE "/media/mp000/mst2-cluster-nav-layout.txt"
+static int view_dy = AA_DEC_VIEW_DY; /* set from the layout when a session starts */
 
 #define MMR_CONTEXT "mcn-aa-cluster"
 /*
@@ -333,6 +336,69 @@ int mcn_decode_on(void)
         }
     }
     return 1;
+}
+
+static int layout_read(const char *path, int v[5])
+{
+    char text[96];
+    int fd = open(path, O_RDONLY), k = 0, i = 0, neg, n;
+
+    if (fd < 0) {
+        return 0;
+    }
+    memset(text, 0, sizeof(text)); /* not "= { 0 }": that needs a run-time helper libc lacks */
+    read(fd, text, sizeof(text) - 1);
+    close(fd);
+    while (k < 5 && text[i]) {
+        while (text[i] && text[i] != '-' && (text[i] < '0' || text[i] > '9')) {
+            i++;
+        }
+        if (!text[i]) {
+            break;
+        }
+        neg = text[i] == '-';
+        i += neg;
+        for (n = 0; text[i] >= '0' && text[i] <= '9'; i++) {
+            n = n * 10 + (text[i] - '0');
+        }
+        v[k++] = neg ? -n : n;
+    }
+    return k;
+}
+
+void mcn_decode_layout(int v[5])
+{
+    char card[] = LAYOUT_CARD_FILE, line[160];
+    int i, k = 0, ok = 1;
+
+    v[0] = AA_DEC_INSET_TOP;
+    v[1] = AA_DEC_INSET_BOTTOM;
+    v[2] = AA_DEC_INSET_LEFT;
+    v[3] = AA_DEC_INSET_RIGHT;
+    v[4] = AA_DEC_VIEW_DY;
+    for (i = 0; i < 10 && !k; i++) {
+        card[11] = (char)('0' + i); /* /media/mp000 .. mp009 */
+        k = layout_read(card, v);
+    }
+    if (!k) {
+        k = layout_read(LAYOUT_FILE, v);
+    }
+    for (i = 0; i < 4; i++) {
+        ok = ok && v[i] >= 0 && v[i] <= 400;
+    }
+    ok = ok && v[0] + v[1] <= 400 && v[2] + v[3] <= 700 && v[4] >= -90 && v[4] <= 90;
+    if (!ok) { /* nonsense in the file: the defaults */
+        v[0] = AA_DEC_INSET_TOP;
+        v[1] = AA_DEC_INSET_BOTTOM;
+        v[2] = AA_DEC_INSET_LEFT;
+        v[3] = AA_DEC_INSET_RIGHT;
+        v[4] = AA_DEC_VIEW_DY;
+    }
+    view_dy = v[4];
+    snprintf(line, sizeof(line), "decode: layout %s: insets top %d bottom %d left %d right %d, dy %d",
+             !k ? "default" : ok ? "from file" : "file invalid, default", v[0], v[1], v[2], v[3],
+             v[4]);
+    mcn_log(line);
 }
 
 static int plain_wanted(void)
@@ -608,7 +674,7 @@ static void view_of(unsigned w, unsigned h, int *x, int *y, int *sw, int *sh)
         vw = (int)(h * VIEW_ASPECT_W / VIEW_ASPECT_H);
     }
     *x = ((int)w - vw) / 2 + VIEW_DX;
-    *y = ((int)h - vh) / 2 + VIEW_DY;
+    *y = ((int)h - vh) / 2 + view_dy;
     if (*x < 0 || *x + vw > (int)w) {
         *x = ((int)w - vw) / 2;
     }
