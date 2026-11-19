@@ -93,6 +93,20 @@
 #define AA_DEC_INSET_LEFT 240
 #define AA_DEC_INSET_RIGHT 10
 #define AA_DEC_VIEW_DY 0
+/*
+ * Sharp decode mode (the default; MCN_DIR/aa-scaled or mst2-cluster-nav-scaled in a card's root
+ * selects the scaled 800x480 mode of v1.1 instead): the phone lays its map out for exactly the picture the cluster shows. The cluster's stream is
+ * coded 1024x384 and cropped by its SPS to the top left 1010x376 (crop right 14, bottom 8: the
+ * cluster's map window, sal.h MCN_CLUSTER_WIDTH/HEIGHT). So the phone is asked for 1280x720 with
+ * margins that leave the centred 1010x376 viewport (AA_VIEW_*), that viewport is put 1:1 at the
+ * top left of the cluster display (decode.c view_of), and nothing is scaled or cut off. The
+ * 800x480 layout (defaults above, or the card's layout file) is carried over: the part of it the
+ * 800x480 mode shows on the cluster (the band from row 90 + dy, 1.28 times larger, its top left
+ * 1010x376) becomes the viewport, insets and density times 1.28, clipped to the viewport.
+ */
+#define AA_SHARP_NUM 32
+#define AA_SHARP_DEN 25 /* 1.28 = 1024 / 800 */
+#define AA_SHARP(v) (((v) * AA_SHARP_NUM + AA_SHARP_DEN / 2) / AA_SHARP_DEN)
 
 /* ---- protobuf-lite reader (bounded by the buffer end) and writer ---------------------- */
 
@@ -118,8 +132,10 @@ struct aa_services {
     unsigned dpi;
     int cluster;                /* offer the cluster display at all */
     int arrows;                 /* offer the navigation status service */
-    int insets_set;             /* 800x480: use inset[] (top, bottom, left, right) */
+    int insets_set;             /* use inset[] (top, bottom, left, right) */
     unsigned inset[4];
+    int margins_set;            /* 1280x720 decoded here: margin[] (w, h) and inset[] as given */
+    unsigned margin[2];
 };
 
 /*

@@ -39,8 +39,9 @@
  * DisplayManager asks for one (want_idr), the cluster's video focus is taken away (mode 2)
  * and given back (mode 1); the phone restarts its encoder with SPS, PPS and an IDR.
  *
- * Decode mode (decode.c, GEM "decoded on the unit"): the phone is asked for 800x480 without
- * margins, its access units go to our own decoder on the unit instead of the shared memory
+ * Decode mode (decode.c, GEM "decoded on the unit"): the phone is asked for 1280x720 with
+ * margins for the cluster's exact 1010x376 window, shown 1:1 (or, with the "scaled" switch, for
+ * 800x480 without margins, scaled 1.28 - v1.1), its access units go to our own decoder on the unit instead of the shared memory
  * (DisplayManager's substitution stays idle: nothing is published, the stream is not marked
  * alive), the SPS is left as it is, and a focus cycle is only run when the decoder lost a
  * unit. The HMI still gets "video=1" while a picture is decoded.
@@ -206,7 +207,8 @@ static int arrows_only(void)
 static unsigned cluster_resolution(void)
 {
     if (decode) {
-        return AA_RES_800x480; /* decoded here: the smaller stream, no margins, no cropping */
+        /* decoded here: 800x480 without margins, scaled 1.28 on the unit; or the sharp mode */
+        return mcn_decode_sharp() ? AA_RES_1280x720 : AA_RES_800x480;
     }
     return file_number(AA_RES_FILE, 720) == 480 ? AA_RES_800x480 : AA_RES_1280x720;
 }
@@ -830,7 +832,7 @@ static void register_endpoints(void)
 
     cluster_offered = !arrows_only();
     decode = mcn_decode_on();
-    crop = cluster_resolution() == AA_RES_1280x720;
+    crop = !decode && cluster_resolution() == AA_RES_1280x720; /* decode mode: no SPS crop */
     for (id = AA_VIDEO_SERVICE_FIRST; id + 2 <= AA_VIDEO_SERVICE_LAST; id += 3) {
         if (table_free(id) && table_free(id + 1) && table_free(id + 2)) {
             break;
@@ -860,8 +862,9 @@ static void register_endpoints(void)
             (long)id_video);
     aa_log(cluster_offered ? "AA: cluster display offered" : "AA: native arrows only", "");
     if (cluster_offered) {
-        aa_log(decode ? "AA: cluster map decoded on the unit (800x480, our window on dpy-6)"
-                      : "AA: cluster map passed through to the cluster",
+        aa_log(!decode ? "AA: cluster map passed through to the cluster"
+               : mcn_decode_sharp() ? "AA: cluster map decoded on the unit (1010x376 1:1, our window on dpy-6)"
+                                    : "AA: cluster map decoded on the unit (800x480 scaled, our window on dpy-6)",
                "");
     }
 }
@@ -969,7 +972,7 @@ static int queue_outgoing(queue_fn real, void *r, unsigned char channel, void *b
         s.dpi = (unsigned)file_number(AA_DPI_FILE, AA_DPI_DEFAULT);
         s.cluster = cluster_offered;
         s.arrows = 1;
-        if (s.res == AA_RES_800x480) {
+        if (decode) {
             int v[5];
 
             mcn_decode_layout(v);
@@ -978,6 +981,24 @@ static int queue_outgoing(queue_fn real, void *r, unsigned char channel, void *b
             s.inset[1] = (unsigned)v[1];
             s.inset[2] = (unsigned)v[2];
             s.inset[3] = (unsigned)v[3];
+            if (s.res == AA_RES_1280x720) {
+                /* sharp: the 800x480 layout's shown part as the phone's exact 1010x376 screen */
+                int band = AA_DEC_VIEW_Y + v[4], e[4];
+
+                e[0] = AA_SHARP(v[0] - band > 0 ? v[0] - band : 0);
+                e[1] = AA_VIEW_H - AA_SHARP(480 - v[1] - band > 0 ? 480 - v[1] - band : 0);
+                e[2] = AA_SHARP(v[2] > 0 ? v[2] : 0);
+                e[3] = AA_VIEW_W - AA_SHARP(800 - v[3] > 0 ? 800 - v[3] : 0);
+                s.margins_set = 1;
+                s.margin[0] = AA_STREAM_W - AA_VIEW_W;
+                s.margin[1] = AA_STREAM_H - AA_VIEW_H;
+                s.inset[0] = AA_VIEW_Y + (unsigned)(e[0] > 0 ? e[0] : 0);
+                s.inset[1] = (AA_STREAM_H - AA_VIEW_Y - AA_VIEW_H) + (unsigned)(e[1] > 0 ? e[1] : 0);
+                s.inset[2] = AA_VIEW_X + (unsigned)(e[2] > 0 ? e[2] : 0);
+                s.inset[3] = (AA_STREAM_W - AA_VIEW_X - AA_VIEW_W) + (unsigned)(e[3] > 0 ? e[3] : 0);
+                s.dpi = AA_SHARP(s.dpi);
+                aa_logn("AA: sharp cluster picture, density ", s.dpi);
+            }
         }
         out[0] = 0;
         out[1] = AA_MSG_SERVICE_DISCOVERY_RESPONSE;

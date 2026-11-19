@@ -269,7 +269,12 @@ static unsigned cluster_video_service(uint8_t *out, unsigned cap, const struct a
     uint8_t config[96], sink[160], service[192], ui[40];
     unsigned k = 0, n, m = 0, margin_w = 0, margin_h = 0, ui_n = 0;
 
-    if (s->res == AA_RES_1280x720) {
+    if (s->res == AA_RES_1280x720 && s->margins_set) {
+        /* sharp decode mode (mcn_aa.h AA_SHARP_*): margins and insets worked out by the caller */
+        margin_w = s->margin[0];
+        margin_h = s->margin[1];
+        ui_n = ui_config(ui, sizeof(ui), s->inset[0], s->inset[1], s->inset[2], s->inset[3]);
+    } else if (s->res == AA_RES_1280x720) {
         margin_w = AA_STREAM_W - AA_VIEW_W;
         margin_h = AA_STREAM_H - AA_VIEW_H;
         /*

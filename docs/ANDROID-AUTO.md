@@ -86,8 +86,11 @@ protobuf bytes, with no object layouts involved (`aa_discovery_rewrite`):
   `VideoConfiguration`: 1280x720, the stock frame-rate enum, margins 270x344 (the phone lays
   its UI out in the centred 1010x376 viewport), density 105, `UiConfig` with the stock cluster
   safe area (sal.h `MCN_SAFE_*`, shifted by the viewport origin) and the dark theme. In
-  decode mode (800x480, the default) the insets are top 83, bottom 128, left 240, right 10
-  (`AA_DEC_INSET_*` in mcn_aa.h; a card file `mst2-cluster-nav-layout.txt` overrides them):
+  decode mode the layout is given as insets in the 800x480 picture of v1.1: top 83, bottom 128,
+  left 240, right 10 (`AA_DEC_INSET_*` in mcn_aa.h; a card file `mst2-cluster-nav-layout.txt`
+  overrides them). The default exact mode (below) converts them to the 1010x376 viewport
+  (x 1.28 from the band at row 90 + shift, clipped: 172/213/442/135 in the 1280x720 frame,
+  density 105 x 1.28 = 134); the scaled mode sends them as they are:
   Google Maps anchors its maneuver card to the bottom right of the content area, draws its
   logo 17 px above the area's bottom edge and centres the car in the area left of the card
   (car, 2026-11-11). These values put the card fully on the cluster at its right edge, the car
@@ -217,8 +220,14 @@ switch file of earlier builds (`aa-decode`) together with the test modes.
 
 ### What changes in the Android Auto sink (`aa.c`)
 
-- The discovery offers the cluster display as 800x480 without margins, whatever `aa-res`
-  says: the smaller stream, laid out by the phone over the whole picture.
+- The discovery offers the cluster display, whatever `aa-res` says, as 1280x720 with margins
+  270x344: the phone lays its map out for the centred 1010x376 viewport at (135, 172), exactly
+  the part of the stock 1024x384 stream the cluster shows (its SPS crops right 14 and bottom 8).
+  That viewport is shown 1:1 at the top left of our window (`view_of`, `dest_of` in decode.c).
+  Measured in the car (Galaxy S23, 2026-11-19): the phone draws the map over the whole frame,
+  with its card, car and logo placed by the insets inside the viewport; the picture is steady.
+  With `MCN_DIR/aa-scaled` or `mst2-cluster-nav-scaled` on a card it is v1.1's 800x480 without
+  margins, laid out over the whole picture and scaled 1.28 into the window.
 - The SPS is left untouched (no crop rewrite). Access units go to `mcn_decode_put`, with the
   stream's SPS and PPS whenever the phone sent them; the decoder is started by the first SPS
   (coded size from it) and started again if another coded size arrives.
@@ -279,10 +288,13 @@ teardown: name_close, mmr_stop, mmr_output_detach, mmr_context_destroy, mmr_disc
 Every message is one `MsgSendvs_r` under a `TimerTimeout` of 2.5 s (above the renderer's own
 2 s queue wait, so a timeout means its receive thread is gone); the 24-byte header is zeroed
 except `cmd` and `len`. The renderer makes its video window a child in our group, so our
-context gets its CREATE event: the window is then cropped to the centred 8:3 part of the
-picture (`SOURCE_POSITION 0,90`, `SOURCE_SIZE 800x300` for 800x480; constants `VIEW_*` in
-`decode.c`) over `0,0 1023x384`, z-order 1 above our transparent parent, and the renderer
-laying it out again later is undone at the next tick. There is no `screen:` URL key for a
+context gets its CREATE event: the window is then cropped to the 1010x376 viewport
+(`SOURCE_POSITION 135,172`, `SOURCE_SIZE 1010x376`, shown at `0,0 1010x376`; in the scaled mode
+the centred 8:3 band, `0,90 800x300`, over `0,0 1023x384`), z-order 1 above our transparent
+parent. Twice a second its rectangles are read back and set again only if they were changed
+from outside (logged with the time, and counted in the 10 s statistics as "window set
+again"). In the car, the build with both changes (exact viewport, no needless re-setting)
+ended a sideways jump of the picture every few seconds that the earlier sharp test build had. There is no `screen:` URL key for a
 source rectangle (`screen_writer.so` knows `dstx/dsty/dstw/dsth`, `aspn/aspd`, not `src*`),
 hence the child-window properties. The parent is shown only once the first key frame was
 pushed and while the mod is active; twice a second its `VISIBLE` and `ZORDER` are read back,
@@ -367,8 +379,10 @@ each:
    within a few seconds of `AA: cluster stream started for the decoder`.
 4. Disconnect and reconnect the phone once; switch the cluster to another view and back.
 5. "Save diagnostics" and read `mst2-cluster-nav.log`:
-   - `AA: cluster map decoded on the unit (800x480, our window on dpy-6)`: the switch took.
-   - `AA: stream width 800`, `decode: stream 1 begins, 800x480`: the phone sends 800x480.
+   - `AA: cluster map decoded on the unit (1010x376 1:1, our window on dpy-6)`: the switch took
+     (`800x480 scaled` with the scaled switch).
+   - `AA: stream width 1280`, `decode: stream 1 begins, 1280x720`: the phone sends 1280x720
+     (800 and 800x480 in the scaled mode).
    - `decode: display index N: id 6, 1024x384` and `window ready on the cluster display`: the
      display was found and the window made (else: `no display with id 6`: the cluster source is
      another display on this unit, read the display list lines).

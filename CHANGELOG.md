@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.2 — 2026-11-19
+
+### Changed
+
+- **Sharper map, exactly the cluster's size.** The cluster shows a 1010x376 picture. Until now
+  the phone drew 800x480 and the unit scaled it up 1.28 times, which made text and thin lines
+  shimmer. The phone now draws the map for exactly 1010x376 and it goes to the cluster pixel
+  for pixel: no scaling, and nothing at the edges is cut off by the cluster any more. The car
+  marker, the maneuver card and the hidden logo keep their places (your
+  `mst2-cluster-nav-layout.txt` still works, in the same numbers as before).
+
+### Fixed
+
+- **No jumping.** A test build of the sharper picture made the map jump sideways by a few pixels
+  every two or three seconds, even when parked; this release is steady (verified in the car).
+  The unit also no longer re-applies the picture's position twice a second when nothing
+  changed.
+
+### Added
+
+- An empty file `mst2-cluster-nav-scaled` on the root of the SD card brings back the v1.1
+  picture (reconnect the phone), for comparison.
+
+### Updating from v1.1
+
+Unzip the new release onto the card (replace the files), then in the Green Engineering Menu
+run **Install / update** again and reboot. Only `libmcn_sal.so` has changed.
+
 ## v1.1 — 2026-11-11
 
 ### Fixed

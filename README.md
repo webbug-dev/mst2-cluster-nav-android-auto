@@ -117,7 +117,7 @@ flowchart LR
     phone["Android phone<br/>Android Auto over USB"]
     subgraph unit["MIB2 Standard head unit"]
         sal["SAL hook<br/>cluster display offered ·<br/>video sink · navigation status"]
-        dec["decode mode<br/>mm-renderer decodes the 800x480<br/>stream into a window on the<br/>cluster source display (dpy-6)"]
+        dec["decode mode<br/>mm-renderer decodes the phone's<br/>1010x376 map 1:1 into a window on the<br/>cluster source display (dpy-6)"]
         enc["stock DisplayManager<br/>captures the display, encodes<br/>1024x384 → TS → J5 → MOST"]
         hmi["HMI bundle<br/>arrows · lanes · notice"]
     end
@@ -130,15 +130,17 @@ flowchart LR
 
 1. **A second display for the phone.** SAL, the process that drives Google's Android Auto
    receiver library, is given a few extra endpoints through `LD_PRELOAD`: a video sink for a
-   *cluster* display (800x480), the input source such a display needs, and a navigation status
+   *cluster* display, the input source such a display needs, and a navigation status
    service. The service discovery answer is rewritten on its way to the phone so that the phone
    sees the cluster display and starts streaming its map to it.
 2. **Decode mode.** The cluster's decoder takes only the stock 1024x384 geometry, and the phone
    cannot send it. So the phone's stream is not handed to the cluster: it is decoded on the head
    unit by a second mm-renderer context of our own (the way the unit decodes the phone's main
-   video) into a window on the cluster source display, cropped to the centred 800x300 band. The
-   stock DisplayManager captures that display and sends the cluster its usual 1024x384 stream;
-   nothing after the encoder changes.
+   video) into a window on the cluster source display. The phone is asked for 1280x720 with
+   margins that leave exactly the 1010x376 the cluster shows (the stock stream is 1024x384,
+   cropped by its SPS to the top left 1010x376), and that part is put pixel for pixel where the
+   cluster takes it from: no scaling and nothing cut off. The stock DisplayManager captures that
+   display and sends the cluster its usual 1024x384 stream; nothing after the encoder changes.
 3. **Native arrows.** The phone is asked for Android Auto protocol 1.7 and sends its route as
    `NavigationState` / `NavigationCurrentPosition`. The maneuver, distances, time and street go
    over a local link to a small HMI bundle, which writes them where the built-in navigation
@@ -175,11 +177,15 @@ the mod's own directories.
   cluster display.
 - **Layout.** Google Maps places the car, the maneuver card and its logo inside the "content
   area" the unit offers it. The default (top 83, bottom 128, left 240, right 10, in pixels of
-  the 800x480 stream; measured on the car, 2026-11-11) keeps the card fully visible at the
+  the 800x480 picture of v1.1, converted to the 1010x376 window; measured on the car,
+  2026-11-11) keeps the card fully visible at the
   right edge, centres the car horizontally and hides the logo under the bottom bar. To adjust
   it without rebuilding, put a file `mst2-cluster-nav-layout.txt` on the root of the SD card
   with five numbers, `top bottom left right shift` (for example `83 128 240 10 0`), and
   reconnect the phone; invalid values fall back to the default.
+- **Scaled mode of v1.1.** An empty file `mst2-cluster-nav-scaled` on the root of the SD card
+  (then reconnect the phone) brings back the earlier picture: 800x480 from the phone, scaled up
+  1.28 times on the unit. Only for comparison; it is softer.
 - **No steering-wheel zoom** of the phone's cluster map: there is no such command in the Android
   Auto protocol for the cluster display (CarPlay has one).
 - **Dark theme** only is requested from the phone; a day/night switch is on the

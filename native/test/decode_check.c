@@ -183,6 +183,8 @@ static unsigned read_pos[32];
 #define FD_DPY 14
 #define FD_LAB 15
 
+static int scaled_file, scaled_card = -1;
+
 int mcn_test_open(const char *path, int flags, ...)
 {
     (void)flags;
@@ -199,6 +201,12 @@ int mcn_test_open(const char *path, int flags, ...)
     }
     if (!strcmp(path, MCN_DIR "/hide-map")) {
         return hide_map ? FD_FLAG : -1;
+    }
+    if (!strcmp(path, MCN_DIR "/aa-scaled")) {
+        return scaled_file ? FD_FLAG : -1;
+    }
+    if (!strncmp(path, "/media/mp00", 11) && strstr(path, "/mst2-cluster-nav-scaled")) {
+        return path[11] - '0' == scaled_card ? FD_FLAG : -1;
     }
     if (strstr(path, "/pps/services/multimedia/renderer/context/")) {
         CHECK(!strcmp(path, "/pps/services/multimedia/renderer/context/"
@@ -1395,7 +1403,11 @@ static void check_first_stream(void)
     CHECK(wins[0].props[51][0] == 1 && wins[0].props[54][0] == 500);
     CHECK(wins[2].props[42][1] == 300 && wins[2].props[41][1] == 90);
     CHECK(logged(from, "window was changed from outside (visible 0, z-order 0)") == 1);
-    CHECK(logged(from, "video window source was 800x480 at (0,0): set again") == 1);
+    CHECK(logged(from, "video window was source 800x480 at (0,0), 1023x384 at (0,0): set again") == 1);
+    from = log_count;
+    now_ms += 600;
+    drain();
+    CHECK(logged(from, "set again") == 0); /* unchanged: not set again */
 
     /* The mod switched off: the window hides, decoding goes on; on again: shown. */
     active = 0;
@@ -1551,6 +1563,36 @@ static void check_fatal_send(void)
     CHECK(!mcn_decode_live(token));
     check_released();
     CHECK(logged(from, "sending an access unit failed, rc -89") == 1);
+    mcn_decode_end(token);
+    drain();
+}
+
+/* The sharp mode's 1280x720: the phone's centred 1010x376 screen, 1:1 at the top left of the
+ * cluster display - the part the stock encoder's crop lets through - with no scaling. */
+static void check_sharp(void)
+{
+    unsigned token, from = log_count;
+
+    /* The exact mode is the default; the scaled 800x480 mode of v1.1 is chosen by a file. */
+    CHECK(mcn_decode_sharp() == 1);
+    scaled_card = 3;
+    CHECK(mcn_decode_sharp() == 0);
+    scaled_card = -1;
+    scaled_file = 1;
+    CHECK(mcn_decode_sharp() == 0);
+    scaled_file = 0;
+
+    reset_counts();
+    token = mcn_decode_begin(1280, 720);
+    put_idr(token);
+    drain();
+    CHECK(mcn_decode_live(token));
+    CHECK(logged(from, "video window shows 1010x376 at (135,172) of 1280x720 in 1010x376") == 1);
+    now_ms += 600;
+    drain();
+    now_ms += 600;
+    drain();
+    CHECK(logged(from, "set again") == 0); /* the 1:1 rectangle is kept, not fought over */
     mcn_decode_end(token);
     drain();
 }
@@ -1852,6 +1894,7 @@ int main(int argc, char **argv)
     check_first_stream();
     check_fatal_send();
     check_settle();
+    check_sharp();
     check_stale_context();
     check_name_open();
     check_every_failure();

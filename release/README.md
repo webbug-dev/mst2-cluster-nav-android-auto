@@ -2,7 +2,7 @@
 
 Built from the sources in this repository against firmware **`MST2_EU_SK_ZR_P0478T`**
 (HMI `H29.319.93`, Škoda Amundsen MIB2 Standard) and verified in a car on 2026-11-10 with a
-Samsung Galaxy S23 over wired Android Auto. The installer also accepts `MST2_EU_SK_ZR_P0480T`
+Samsung Galaxy S23 over wired Android Auto (v1.2: 2026-11-19). The installer also accepts `MST2_EU_SK_ZR_P0480T`
 (HMI `H29.319.120`), the original project's reference firmware; its Android Auto path was not
 run in a car.
 

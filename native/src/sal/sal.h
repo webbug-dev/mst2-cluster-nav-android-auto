@@ -108,6 +108,9 @@ int mcn_decode_on(void);
 /* The decode mode layout (mcn_aa.h AA_DEC_*): v = top, bottom, left, right insets, dy; read
  * from mst2-cluster-nav-layout.txt in a card's root or MCN_DIR/layout, else the defaults. */
 void mcn_decode_layout(int v[5]);
+/* The sharp decode mode (mcn_aa.h AA_SHARP_*), the default: 0 when MCN_DIR/aa-scaled or
+ * mst2-cluster-nav-scaled in a card's root asks for the scaled 800x480 mode. */
+int mcn_decode_sharp(void);
 unsigned mcn_decode_begin(unsigned width, unsigned height);
 void mcn_decode_put(unsigned token, const uint8_t *au, unsigned n, int idr, const uint8_t *config,
                     unsigned config_len);

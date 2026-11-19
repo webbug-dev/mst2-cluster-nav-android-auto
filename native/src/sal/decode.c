@@ -54,6 +54,9 @@
  * index, as mst2-altscreen-carplay does it in a car (no crop: the picture is squeezed to 8:3). */
 #define PLAIN_FILE MCN_DIR "/aa-decode-plain"
 #define PLAIN_CARD_FLAG "/media/mp000/mst2-cluster-nav-decode-plain"
+/* The scaled 800x480 decode mode of v1.1 instead of the exact 1010x376 one (mcn_aa.h AA_SHARP_*). */
+#define SCALED_FILE MCN_DIR "/aa-scaled"
+#define SCALED_CARD_FLAG "/media/mp000/mst2-cluster-nav-scaled"
 #define OUTPUT_URL_PLAIN "screen:/?index=%d&overlay=0&dstx=%u&dsty=%u&dstw=%u&dsth=%u&zorder=%d"
 #define HIDE_MAP_FILE MCN_DIR "/hide-map"
 
@@ -259,6 +262,7 @@ static void *sctx, *sdisplay, *swin, *sbuf, *sevent, *svideo;
 static int sdisplay_index = -1, plain; /* plain: the fallback output of PLAIN_FILE */
 static int win_step, shown, verbose = 1;
 static int video_said, reassert_said, source_said, event_said;
+static unsigned source_changes; /* the video window's rectangles found changed from outside */
 
 /* ---- logging ------------------------------------------------------------------------------ */
 
@@ -399,6 +403,23 @@ void mcn_decode_layout(int v[5])
              !k ? "default" : ok ? "from file" : "file invalid, default", v[0], v[1], v[2], v[3],
              v[4]);
     mcn_log(line);
+}
+
+int mcn_decode_sharp(void)
+{
+    char flag[] = SCALED_CARD_FLAG;
+    int i;
+
+    if (exists(SCALED_FILE)) {
+        return 0;
+    }
+    for (i = 0; i < 10; i++) {
+        flag[11] = (char)('0' + i);
+        if (exists(flag)) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 static int plain_wanted(void)
@@ -669,6 +690,15 @@ static void view_of(unsigned w, unsigned h, int *x, int *y, int *sw, int *sh)
 {
     int vw = (int)w, vh = (int)(w * VIEW_ASPECT_H / VIEW_ASPECT_W);
 
+    if (w == AA_STREAM_W && h == AA_STREAM_H) {
+        /* The sharp mode's 1280x720 (mcn_aa.h): the phone's 1010x376 screen, shown 1:1. */
+        *x = AA_VIEW_X;
+        *y = AA_VIEW_Y;
+        *sw = AA_VIEW_W;
+        *sh = AA_VIEW_H;
+        return;
+    }
+
     if (vh > (int)h) { /* a picture wider than the window: full height, centred width */
         vh = (int)h;
         vw = (int)(h * VIEW_ASPECT_W / VIEW_ASPECT_H);
@@ -685,16 +715,30 @@ static void view_of(unsigned w, unsigned h, int *x, int *y, int *sw, int *sh)
     *sh = vh;
 }
 
-/* The renderer's window: the wanted part of the picture over our whole window. */
+/*
+ * Where the shown part goes in our window: stretched over all of it, except in the sharp mode,
+ * whose 1010x376 goes 1:1 to the top left - the part of the cluster display the stock encoder's
+ * crop (right 14, bottom 8 of 1024x384) lets through to the cluster.
+ */
+static void dest_of(int sw, int sh, int *dw, int *dh)
+{
+    int exact = sw == AA_VIEW_W && sh == AA_VIEW_H && run_w == AA_STREAM_W && run_h == AA_STREAM_H;
+
+    *dw = exact ? sw : WIN_W;
+    *dh = exact ? sh : WIN_H;
+}
+
+/* The renderer's window: the wanted part of the picture over our window. */
 static void video_place(int log)
 {
-    int x, y, w, h, v[2], rc[6];
+    int x, y, w, h, dw, dh, v[2], rc[6];
     char line[200];
 
     if (!svideo) {
         return;
     }
     view_of(run_w, run_h, &x, &y, &w, &h);
+    dest_of(w, h, &dw, &dh);
     v[0] = x;
     v[1] = y;
     rc[0] = p_screen_set_window_property_iv(svideo, P_SOURCE_POSITION, v);
@@ -703,8 +747,8 @@ static void video_place(int log)
     rc[1] = p_screen_set_window_property_iv(svideo, P_SOURCE_SIZE, v);
     v[0] = v[1] = 0;
     rc[2] = p_screen_set_window_property_iv(svideo, P_POSITION, v);
-    v[0] = WIN_W;
-    v[1] = WIN_H;
+    v[0] = dw;
+    v[1] = dh;
     rc[3] = p_screen_set_window_property_iv(svideo, P_SIZE, v);
     v[0] = VIDEO_ZORDER;
     v[1] = 0;
@@ -716,7 +760,7 @@ static void video_place(int log)
         snprintf(line, sizeof(line),
                  "decode: video window shows %dx%d at (%d,%d) of %ux%u in %dx%d, "
                  "rc %d/%d/%d/%d/%d/%d",
-                 w, h, x, y, run_w, run_h, WIN_W, WIN_H, rc[0], rc[1], rc[2], rc[3], rc[4], rc[5]);
+                 w, h, x, y, run_w, run_h, dw, dh, rc[0], rc[1], rc[2], rc[3], rc[4], rc[5]);
         mcn_log(line);
     }
 }
@@ -774,22 +818,35 @@ static void window_reassert(void)
     v[0] = WIN_ZORDER;
     p_screen_set_window_property_iv(swin, P_ZORDER, v);
     if (svideo) {
-        int x, y, w, h, pos[2] = { 0, 0 }, size[2] = { 0, 0 };
+        int x, y, w, h, dw, dh, pos[2] = { -1, -1 }, size[2] = { -1, -1 }, wpos[2] = { -1, -1 },
+            wsize[2] = { -1, -1 }, read_ok;
 
-        /* The renderer may lay its window out again when the decoder reports the format. */
+        /*
+         * The renderer may lay its window out again when the decoder reports the format. The
+         * rectangles are set again only when they differ (or cannot be read): setting them
+         * unchanged twice a second makes Screen compose the window anew each time.
+         */
         view_of(run_w, run_h, &x, &y, &w, &h);
-        if (p_screen_get_window_property_iv(svideo, P_SOURCE_POSITION, pos) == 0 &&
-            p_screen_get_window_property_iv(svideo, P_SOURCE_SIZE, size) == 0 &&
-            (pos[0] != x || pos[1] != y || size[0] != w || size[1] != h)) {
-            if (source_said < 5) {
+        dest_of(w, h, &dw, &dh);
+        read_ok = p_screen_get_window_property_iv(svideo, P_SOURCE_POSITION, pos) == 0 &&
+                  p_screen_get_window_property_iv(svideo, P_SOURCE_SIZE, size) == 0 &&
+                  p_screen_get_window_property_iv(svideo, P_POSITION, wpos) == 0 &&
+                  p_screen_get_window_property_iv(svideo, P_SIZE, wsize) == 0;
+        if (!read_ok || pos[0] != x || pos[1] != y || size[0] != w || size[1] != h ||
+            wpos[0] != 0 || wpos[1] != 0 || wsize[0] != dw || wsize[1] != dh) {
+            source_changes++;
+            if (read_ok && source_said < 30) {
                 source_said++;
                 snprintf(line, sizeof(line),
-                         "decode: video window source was %dx%d at (%d,%d): set again", size[0],
-                         size[1], pos[0], pos[1]);
+                         "decode: at %u ms the video window was source %dx%d at (%d,%d), "
+                         "%dx%d at (%d,%d): set again", tick_ms, size[0], size[1], pos[0],
+                         pos[1], wsize[0], wsize[1], wpos[0], wpos[1]);
                 mcn_log(line);
             }
+            video_place(0);
+        } else {
+            p_screen_flush_context(sctx, 0);
         }
-        video_place(0);
     } else {
         p_screen_flush_context(sctx, 0);
     }
@@ -1199,18 +1256,20 @@ static unsigned dpy_counter(int *capturing)
 
 static void stats(unsigned now)
 {
-    char line[240];
+    char line[280];
     int capturing;
     unsigned counter = dpy_counter(&capturing), dropped = p_dropped, waiting = p_waiting;
 
     snprintf(line, sizeof(line),
              "decode: 10 s: pushed %u (%u bytes), dropped %u at the queue, %u waiting for a key "
-             "frame, %u skipped, send errors %u, queue max %u; dpy-6 composed +%u, capture %s",
+             "frame, %u skipped, send errors %u, queue max %u; dpy-6 composed +%u, capture %s; "
+             "window set again %u",
              pushed - st_pushed, pushed_bytes - st_bytes, dropped - st_dropped,
              waiting - st_waiting, skipped - st_skipped, send_errors - st_errors, q_max,
              last_counter ? counter - last_counter : 0,
-             capturing > 0 ? "on" : capturing == 0 ? "off" : "unknown");
+             capturing > 0 ? "on" : capturing == 0 ? "off" : "unknown", source_changes);
     mcn_log(line);
+    source_changes = 0;
     st_pushed = pushed;
     st_bytes = pushed_bytes;
     st_errors = send_errors;

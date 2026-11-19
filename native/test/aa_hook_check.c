@@ -112,7 +112,7 @@ void mcn_capture_end(void)
 }
 
 /* decode.c stand-in: the switch, the stream tokens and what the hooks hand over. */
-static int decode_on, decode_live, decode_want_key;
+static int decode_on, decode_live, decode_want_key, decode_sharp;
 static unsigned decode_token, decode_begins, decode_ends, decode_units, decode_configs,
     decode_lost, decode_w, decode_h, decode_last_n, decode_last_idr, decode_last_token;
 static uint8_t decode_last_config[256];
@@ -121,6 +121,11 @@ static unsigned decode_last_config_len;
 int mcn_decode_on(void)
 {
     return decode_on;
+}
+
+int mcn_decode_sharp(void)
+{
+    return decode_sharp;
 }
 
 void mcn_decode_layout(int v[5])
@@ -571,6 +576,50 @@ static void cluster_config(const uint8_t *p, unsigned n, int *res, int *margin_w
     }
 }
 
+/* The cluster sink's density (VideoConfiguration field 5) and UiConfig insets (11 -> 2 -> 1..4). */
+static void cluster_layout(const uint8_t *p, unsigned n, int *dpi, int ins[4])
+{
+    struct aa_pb b = { p, p + n }, s, x, y, z, u, t;
+    unsigned f, w;
+    uint64_t v;
+    int id;
+
+    *dpi = ins[0] = ins[1] = ins[2] = ins[3] = -1;
+    while (aa_pb_next(&b, &f, &w, &v, &s)) {
+        if (f != 1 || w != 2) {
+            continue;
+        }
+        id = -1;
+        while (aa_pb_next(&s, &f, &w, &v, &x)) {
+            if (f == 1 && w == 0) {
+                id = (int)v;
+            } else if (f == 3 && w == 2 && id >= 0x40) {
+                while (aa_pb_next(&x, &f, &w, &v, &y)) {
+                    if (f != 4 || w != 2) {
+                        continue;
+                    }
+                    while (aa_pb_next(&y, &f, &w, &v, &z)) {
+                        if (f == 5 && w == 0) {
+                            *dpi = (int)v;
+                        } else if (f == 11 && w == 2) {
+                            while (aa_pb_next(&z, &f, &w, &v, &u)) {
+                                if (f == 2 && w == 2) {
+                                    while (aa_pb_next(&u, &f, &w, &v, &t)) {
+                                        if (f >= 1 && f <= 4 && w == 0) {
+                                            ins[f - 1] = (int)v;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+        }
+    }
+}
+
 /* Service ids of a ServiceDiscoveryResponse, as a bit mask over 0x40..0x5f plus bit 0 for id 1. */
 static unsigned discovered(const uint8_t *p, unsigned n)
 {
@@ -763,6 +812,24 @@ int main(void)
     CHECK(hook_init(receiver, NULL) == 1);
     video = table(0x40);
     CHECK(video && table(0x41) && table(0x42));
+    /*
+     * Sharp mode: 1280x720 with margins for the centred 1010x376 viewport at (135,172); the part
+     * of the 800x480 layout (defaults 83/128/240/10, dy 0) the cluster shows - band from row 90,
+     * times 1.28 - clipped to it, in the full frame's coordinates; density 105 x 1.28.
+     */
+    decode_sharp = 1;
+    n = stock_discovery(msg);
+    CHECK(hook_queue(router, 0, msg, n) == QUEUED);
+    {
+        int res, mw, mh, dpi, ins[4];
+
+        cluster_config(last_sent(0)->data + 2, last_sent(0)->n - 2, &res, &mw, &mh);
+        CHECK(res == AA_RES_1280x720 && mw == 270 && mh == 344);
+        cluster_layout(last_sent(0)->data + 2, last_sent(0)->n - 2, &dpi, ins);
+        CHECK(dpi == 134);
+        CHECK(ins[0] == 172 + 0 && ins[1] == 172 + 41 && ins[2] == 135 + 307 && ins[3] == 135 + 0);
+    }
+    decode_sharp = 0;
     /* The phone is asked for 800x480 without margins, whatever aa-res says (720 here). */
     n = stock_discovery(msg);
     CHECK(hook_queue(router, 0, msg, n) == QUEUED);
@@ -772,6 +839,12 @@ int main(void)
 
         cluster_config(last_sent(0)->data + 2, last_sent(0)->n - 2, &res, &mw, &mh);
         CHECK(res == AA_RES_800x480 && mw == 0 && mh == 0);
+    }
+    {
+        int dpi, ins[4];
+
+        cluster_layout(last_sent(0)->data + 2, last_sent(0)->n - 2, &dpi, ins);
+        CHECK(dpi == 105 && ins[0] == 83 && ins[1] == 128 && ins[2] == 240 && ins[3] == 10);
     }
     CHECK(phone_opens(3, 0x40) == 0 && phone_opens(5, 0x42) == 0);
     CHECK(phone_sends(3, setup, sizeof(setup)) == 0);
